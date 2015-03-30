@@ -40,16 +40,18 @@ if __name__ == '__main__':
     inputs = get_random_examples(in_size, n_examples)
     outputs = get_random_examples(out_size, n_examples)
 
-    print "Inputs autocorrelations:"
-    print np.dot(inputs, inputs.T)
-    print "Outputs autocorrelations:"
-    print np.dot(outputs, outputs.T)
+    print "Inputs:"
+    print inputs
+    print "Outputs:"
+    print outputs
 
     b.train(inputs, outputs)
 
     test = get_random_examples(in_size, 1)
     print "Test: ", test
-    print "Correlations with train: ", np.dot(test, inputs.T)
-    print "Test output: ", b.one_pass(test)
-    print b.one_pass([1,1,1,1,1,0,0,0,0,0,0,0,0,0,0])
-    print b.one_pass([1,1,1,1,1,1,0,0,0,0], is_input=False)
+    print "Correlations with train inputs: ", np.dot(test, inputs.T) / inputs.sum(axis=1).astype(float)
+    res = b.one_pass(test)
+    print "Test output: ", res
+    print "correlations with train outputs: ", np.dot(res, outputs.T) / outputs.sum(axis=1).astype(float)
+    #print b.one_pass([1,1,1,1,1,0,0,0,0,0,0,0,0,0,0])
+    #print b.one_pass([1,1,1,1,1,1,0,0,0,0], is_input=False)
