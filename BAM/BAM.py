@@ -59,5 +59,20 @@ class BAM(object):
 
         return res
 
-    def retrieve(self, tests, is_input=True):
-        pass
+    def iterate(self, tests, is_input=True, max_iter=10):
+
+        back = np.array(tests)
+
+        diff = np.ones(back.shape).astype(np.int8)
+        count = 0
+        while diff.sum() > 0 and count < max_iter:
+            origin = back
+            forward = self.one_pass(origin, is_input)
+            back = self.one_pass(forward, (not is_input))
+
+            diff = back - origin
+            count += 1
+
+        return forward, count
+
+
