@@ -57,7 +57,8 @@ class BAM(object):
                 output_size if is_input=False
         :param is_input: Input/output indicator, default is True
         :param threshold: threshold for calculating target activations:
-                1 for anything above max * threshold and 0 otherwise
+                1 for anything above max * threshold and 0 otherwise.
+                Single value or list/array of m values, where m is the number of tests.
         :param tell: default False, set this to True if want intermediate information to be printed in the stdout
         :return: target activations
         '''
