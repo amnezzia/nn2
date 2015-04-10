@@ -5,6 +5,16 @@ import numpy as np
 from layers import InputLayer, HiddenLayer, OutputLayer
 
 
+class SamplesNumberMismatch(Exception):
+    """Exception when number of training input samples does not match the number of target samples"""
+    pass
+
+
+class UnknownCostFunction(Exception):
+    """Exception when specified cost function is not one of the implemented"""
+    pass
+
+
 class Net(object):
     """
     Class to assemble the network, train and use it
@@ -128,7 +138,7 @@ class Net(object):
         if self.cost_f == 'log':
             return self._log_cost(self.outputs, targets, reg_coeff)
         else:
-            raise Exception("{} - unknown cost function".format(self.cost_f))
+            raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
 
     def fit(self, X, Y,
             batch_size=None,
@@ -154,7 +164,7 @@ class Net(object):
         """
 
         if len(Y) != len(X):
-            raise Exception("Lengths of X and Y should be the same")
+            raise SamplesNumberMismatch("Lengths of X and Y should be the same")
 
         # split into batches
         batches = zip(self._split_into_batches(X, batch_size),

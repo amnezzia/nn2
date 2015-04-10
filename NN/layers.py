@@ -3,6 +3,11 @@ __author__ = 'misha'
 import numpy as np
 
 
+class UnknownActivationFunction(Exception):
+    """Exception when specified activation string is not one of the implemented"""
+    pass
+
+
 class InputLayer(object):
     """
     Contains the basics: activations and size
@@ -22,7 +27,7 @@ class InputLayer(object):
         self.activations = np.array(inputs).reshape((-1, self.size))
 
 
-class HiddenLayer(InputLayer):
+class HiddenLayer(object):
     """
     Hidden layer
     """
@@ -35,7 +40,8 @@ class HiddenLayer(InputLayer):
         :param input_size: Size of the previous layer
         :param activate_f: Activation function, default: 'log', right now only logistic function is implemented
         """
-        super(HiddenLayer, self).__init__(size)
+        self.size = size
+        self.activations = None
 
         # for being able to specify the activation function
         self.activate_f = activate_f
@@ -72,7 +78,7 @@ class HiddenLayer(InputLayer):
         if self.activate_f == 'log':
             return self._logistic(x)
         else:
-            raise Exception("{} is unknown activation function".format(self.activate_f))
+            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
 
     def _activation_derivative(self,):
         """
@@ -84,7 +90,7 @@ class HiddenLayer(InputLayer):
         elif self.activate_f == 'log':
             return self.activations * (1. - self.activations)
         else:
-            raise Exception("{} is unknown activation function".format(self.activate_f))
+            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
 
     def _set_inputs(self, inputs):
         """
