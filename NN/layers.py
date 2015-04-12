@@ -32,13 +32,14 @@ class HiddenLayer(object):
     Hidden layer
     """
 
-    def __init__(self, size, input_size, activate_f='log'):
+    def __init__(self, size, input_size, activate_f='logit', theta=None):
         """
         Initialize with size and the size of the previous layer.
         Activations of the previous layer are inputs for this layer
         :param size: Number of neurons in this layer
         :param input_size: Size of the previous layer
         :param activate_f: Activation function, default: 'log', right now only logistic function is implemented
+        :param theta: optionally set starting theta
         """
         self.size = size
         self.activations = None
@@ -52,7 +53,10 @@ class HiddenLayer(object):
         self.deltas = None
 
         # start with random weights
-        self.theta = 0.1 * np.random.rand(input_size + 1, size)
+        if theta is None:
+            self.theta = 0.1 * np.random.rand(input_size + 1, size)
+        else:
+            self.theta = theta
         # these are derivatives of cost function with respect to weights, used for updating the weights during training
         self.theta_update = np.zeros(self.theta.shape)
 
@@ -75,8 +79,10 @@ class HiddenLayer(object):
         :param x: array of input arguments
         :return: results
         """
-        if self.activate_f == 'log':
+        if self.activate_f == 'logit':
             return self._logistic(x)
+        elif self.activate_f == 'lrect':
+            return self._linear_rectifier(x)
         else:
             raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
 
@@ -87,8 +93,10 @@ class HiddenLayer(object):
         """
         if self.activations is None:
             return None
-        elif self.activate_f == 'log':
+        elif self.activate_f == 'logit':
             return self.activations * (1. - self.activations)
+        #elif self.activate_f == 'lrect':
+        #    return self.activations * (1. - self.activations)
         else:
             raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
 
@@ -160,14 +168,14 @@ class OutputLayer(HiddenLayer):
     """
     Same as Hidden layer, but with different deltas calculation
     """
-
-    def set_deltas(self, targets):
-        """
-        Deltas are just the difference between outputs and targets
-        :param targets: Targets
-        :return:
-        """
-        if self.activations is None:
-            pass
-        else:
-            self.deltas = self.activations - np.array(targets).reshape((-1, self.size)).astype(np.float)
+    pass
+    #def set_deltas(self, pre_deltas):
+    #    """
+    #    Deltas are just the difference between outputs and targets
+    #    :param targets: Targets
+    #    :return:
+    #    """
+    #    if self.activations is None:
+    #        pass
+    #    else:
+    #        self.deltas = np.array(pre_deltas).reshape((-1, self.size)).astype(np.float)

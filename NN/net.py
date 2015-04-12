@@ -5,7 +5,7 @@ import numpy as np
 from layers import InputLayer, HiddenLayer, OutputLayer
 
 
-class SamplesNumberMismatch(Exception):
+class ArrayLengthMismatch(Exception):
     """Exception when number of training input samples does not match the number of target samples"""
     pass
 
@@ -20,17 +20,23 @@ class Net(object):
     Class to assemble the network, train and use it
     """
 
-    def __init__(self, layer_sizes, cost_f='log'):
+    def __init__(self, layer_sizes, activate_f='logit', cost_f='log', thetas=None):
         """
         Initialize network with the following parameters:
         :param layer_sizes: list of layer sizes including input and output([2, 3, 4] - 2 neurons in the input layer,
                             3 in the hidden layer, 4 in the output)
+        :param activate_f: optional, override default activation finction for all layers
         :param cost_f: optional, default is 'log' for log cost function
+        :param thetas: optional list of initial weights for each layer,
+                list length should be one less the the length of sizes
+                (if length of the list is the same as sizes, then first corresponds to the input layer and is ignored)
         :return:
         """
 
+
         self.layer_sizes = layer_sizes
         self.cost_f = cost_f
+        self.activate_f = activate_f
 
         # list to keep track of cost values during training
         self.costs = []
@@ -38,15 +44,32 @@ class Net(object):
         # outputs produced by the network, same as last layer activations
         self.outputs = None
 
+        # prepare thetas
+        layer_thetas = [None for _ in layer_sizes]
+        if thetas is None:
+            pass
+        elif len(thetas) == len(layer_sizes):
+            layer_thetas = thetas
+        elif len(thetas) == len(layer_sizes) - 1:
+            layer_thetas[1:] = thetas
+        else:
+            raise ArrayLengthMismatch("Number of theta arrays should be equal to or one less than number of layers")
+
         # instantiate layers
         self.layers = []
         for i, size in enumerate(self.layer_sizes):
             if i == 0:
                 self.layers.append(InputLayer(size))
             elif i == len(self.layer_sizes) - 1:
-                self.layers.append(OutputLayer(size, self.layer_sizes[i - 1]))
+                self.layers.append(OutputLayer(size,
+                                               self.layer_sizes[i - 1],
+                                               activate_f=activate_f,
+                                               theta=layer_thetas[i]))
             else:
-                self.layers.append(HiddenLayer(size, self.layer_sizes[i - 1]))
+                self.layers.append(HiddenLayer(size,
+                                               self.layer_sizes[i - 1],
+                                               activate_f=activate_f,
+                                               theta=layer_thetas[i]))
 
     def _log_cost(self, outputs, targets, reg_coeff):
         """
@@ -57,9 +80,38 @@ class Net(object):
         """
         j = targets * np.log(outputs) + (1. - targets) * np.log(1. - outputs)
         thetas_sq_sum = sum([(l.theta ** 2).sum() for l in self.layers[1:]])
-        e = (- j.sum() + reg_coeff * 0.5 * thetas_sq_sum) / float(j.shape[0])
+        cost = (- j.sum() + reg_coeff * 0.5 * thetas_sq_sum) / float(j.shape[0])
 
-        return e
+        return cost
+
+    def _square_cost(self, outputs, targets, reg_coeff):
+        """
+        Log cost function
+        :param outputs: predicted outputs
+        :param targets: targets
+        :return: cost value
+        """
+        j = 0.5 * (outputs - targets) ** 2
+        thetas_sq_sum = sum([(l.theta ** 2).sum() for l in self.layers[1:]])
+        cost = (j.sum() + reg_coeff * 0.5 * thetas_sq_sum) / float(j.shape[0])
+
+        return cost
+
+    @staticmethod
+    def _square_cost_derivative(outputs, targets):
+        """
+
+        :return:
+        """
+        return np.subtract(outputs, targets)
+
+    @staticmethod
+    def _log_cost_derivative(outputs, targets):
+        """
+
+        :return:
+        """
+        return np.subtract(outputs, targets) / (outputs * np.subtract(1., outputs))
 
     @staticmethod
     def _split_into_batches(arr, batch_size):
@@ -111,8 +163,10 @@ class Net(object):
         Propagate back the deltas (errors)
         :param batch_targets: expected outputs of the network
         """
-        # for the output layer pre-deltas are just targets, see OutputLayer class
-        pre_d = batch_targets
+        # for the output layer:
+        pre_d = self.cost_derivative(self.outputs, batch_targets)
+
+        # finish for output and continue for all others
         for l in self.layers[:0:-1]:
             # calculate deltas for the current layer
             l.set_deltas(pre_d)
@@ -137,6 +191,20 @@ class Net(object):
         """
         if self.cost_f == 'log':
             return self._log_cost(self.outputs, targets, reg_coeff)
+        elif self.cost_f == 'square':
+            return self._square_cost(self.outputs, targets, reg_coeff)
+        else:
+            raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
+
+    def cost_derivative(self, outputs, targets):
+        """
+
+        :return:
+        """
+        if self.cost_f == 'log':
+            return self._log_cost_derivative(outputs, targets)
+        elif self.cost_f == 'square':
+            return self._square_cost_derivative(outputs, targets)
         else:
             raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
 
@@ -145,7 +213,7 @@ class Net(object):
             update_at='batch',
             reg_coeff=0.,
             update_rate=1.,
-            max_iter=1000,
+            max_iter=50,
             min_cost=0.001):
         """
         Training of the network
@@ -164,7 +232,7 @@ class Net(object):
         """
 
         if len(Y) != len(X):
-            raise SamplesNumberMismatch("Lengths of X and Y should be the same")
+            raise ArrayLengthMismatch("Lengths of X and Y should be the same")
 
         # split into batches
         batches = zip(self._split_into_batches(X, batch_size),
@@ -216,3 +284,6 @@ class Net(object):
         return self.outputs
 
 
+class StackedAutoEncoders(Net):
+
+    pass
