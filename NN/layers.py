@@ -46,6 +46,7 @@ class HiddenLayer(object):
 
         # for being able to specify the activation function
         self.activate_f = activate_f
+        self._set_activation_function()
 
         self.input_size = input_size
         self.inputs = None
@@ -63,6 +64,20 @@ class HiddenLayer(object):
         # number of training examples seen since last update of the weights
         self.batch_counter = 0
 
+    def _set_activation_function(self):
+        """
+
+        :return:
+        """
+        if self.activate_f == 'logit':
+            self._activation_function = self._logistic
+            self._activation_derivative = self._logistic_derivative
+        elif self.activate_f == 'lrect':
+            self._activation_function = self._linear_rectifier
+            self._activation_derivative = self._linear_rectifier_derivative
+        else:
+            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
+
     @staticmethod
     def _logistic(arr):
         """
@@ -73,32 +88,31 @@ class HiddenLayer(object):
         arr = np.array(arr)
         return 1. / (1. + np.exp(- arr))
 
-    def _activation_function(self, x):
-        """
-        This is for being able to switch between different activation functions
-        :param x: array of input arguments
-        :return: results
-        """
-        if self.activate_f == 'logit':
-            return self._logistic(x)
-        elif self.activate_f == 'lrect':
-            return self._linear_rectifier(x)
-        else:
-            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
-
-    def _activation_derivative(self,):
+    @staticmethod
+    def _logistic_derivative(arr):
         """
         Selection of activation function derivatives
         :return: derivative values
         """
-        if self.activations is None:
-            return None
-        elif self.activate_f == 'logit':
-            return self.activations * (1. - self.activations)
-        #elif self.activate_f == 'lrect':
-        #    return self.activations * (1. - self.activations)
-        else:
-            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
+        return arr * (1. - arr)
+
+    @staticmethod
+    def _linear_rectifier(arr):
+        """
+
+        :param x:
+        :return:
+        """
+        return (arr > 0) * arr
+
+    @staticmethod
+    def _linear_rectifier_derivative(arr):
+        """
+
+        :param arr:
+        :return:
+        """
+        return (arr > 0) * 1.
 
     def _set_inputs(self, inputs):
         """
@@ -133,7 +147,7 @@ class HiddenLayer(object):
             pass
         else:
             pre_d = np.array(pre_deltas).reshape((-1, self.size))
-            self.deltas = self._activation_derivative() * pre_d
+            self.deltas = self._activation_derivative(self.activations) * pre_d
 
     def get_previous_pre_deltas(self,):
         """
@@ -169,13 +183,3 @@ class OutputLayer(HiddenLayer):
     Same as Hidden layer, but with different deltas calculation
     """
     pass
-    #def set_deltas(self, pre_deltas):
-    #    """
-    #    Deltas are just the difference between outputs and targets
-    #    :param targets: Targets
-    #    :return:
-    #    """
-    #    if self.activations is None:
-    #        pass
-    #    else:
-    #        self.deltas = np.array(pre_deltas).reshape((-1, self.size)).astype(np.float)

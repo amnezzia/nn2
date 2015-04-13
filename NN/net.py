@@ -41,6 +41,9 @@ class Net(object):
         # list to keep track of cost values during training
         self.costs = []
 
+        # assign cost function
+        self._assign_cost_function()
+
         # outputs produced by the network, same as last layer activations
         self.outputs = None
 
@@ -71,6 +74,17 @@ class Net(object):
                                                activate_f=activate_f,
                                                theta=layer_thetas[i]))
 
+    def _assign_cost_function(self):
+        self.cost = None
+        if self.cost_f == 'log':
+            self.cost = self._log_cost
+            self.cost_derivative = self._log_cost_derivative
+        elif self.cost_f == 'square':
+            self.cost = self._square_cost
+            self.cost_derivative = self._square_cost_derivative
+        else:
+            raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
+
     def _log_cost(self, outputs, targets, reg_coeff):
         """
         Log cost function
@@ -79,28 +93,35 @@ class Net(object):
         :return: cost value
         """
         j = targets * np.log(outputs) + (1. - targets) * np.log(1. - outputs)
-        thetas_sq_sum = sum([(l.theta ** 2).sum() for l in self.layers[1:]])
-        cost = (- j.sum() + reg_coeff * 0.5 * thetas_sq_sum) / float(j.shape[0])
+        cost = (- j.sum() + self._l2_regularization(reg_coeff)) / float(j.shape[0])
 
         return cost
 
     def _square_cost(self, outputs, targets, reg_coeff):
         """
-        Log cost function
+        Square difference cost function
         :param outputs: predicted outputs
         :param targets: targets
         :return: cost value
         """
         j = 0.5 * (outputs - targets) ** 2
-        thetas_sq_sum = sum([(l.theta ** 2).sum() for l in self.layers[1:]])
-        cost = (j.sum() + reg_coeff * 0.5 * thetas_sq_sum) / float(j.shape[0])
+        cost = (j.sum() + self._l2_regularization(reg_coeff)) / float(j.shape[0])
 
         return cost
+
+    def _l2_regularization(self, reg_coeff):
+        """
+        Helper method to calculate regularization term for cost function
+        :param reg_coeff:
+        :return:
+        """
+        return 0.5 * reg_coeff * sum([(l.theta ** 2).sum() for l in self.layers[1:]])
 
     @staticmethod
     def _square_cost_derivative(outputs, targets):
         """
-
+        Method to calculate pre-deltas for output layer
+        (which is a derivative of square-loss cost function with respect to outputs)
         :return:
         """
         return np.subtract(outputs, targets)
@@ -108,7 +129,8 @@ class Net(object):
     @staticmethod
     def _log_cost_derivative(outputs, targets):
         """
-
+        Method to calculate pre-deltas for output layer
+        (which is a derivative of log-loss cost function with respect to outputs)
         :return:
         """
         return np.subtract(outputs, targets) / (outputs * np.subtract(1., outputs))
@@ -183,31 +205,6 @@ class Net(object):
         for l in self.layers[:0:-1]:
             l.update_weights(update_rate, reg_coeff)
 
-    def cost(self, targets, reg_coeff):
-        """
-        Calculate cost value for the current batch.
-        :param targets: current batch expected targets
-        :return:
-        """
-        if self.cost_f == 'log':
-            return self._log_cost(self.outputs, targets, reg_coeff)
-        elif self.cost_f == 'square':
-            return self._square_cost(self.outputs, targets, reg_coeff)
-        else:
-            raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
-
-    def cost_derivative(self, outputs, targets):
-        """
-
-        :return:
-        """
-        if self.cost_f == 'log':
-            return self._log_cost_derivative(outputs, targets)
-        elif self.cost_f == 'square':
-            return self._square_cost_derivative(outputs, targets)
-        else:
-            raise UnknownCostFunction("{} - unknown cost function".format(self.cost_f))
-
     def fit(self, X, Y,
             batch_size=None,
             update_at='batch',
@@ -249,7 +246,7 @@ class Net(object):
                 self.forward(batch_inputs)
 
                 # calculate cost and add to the accumulator
-                j += self.cost(batch_targets, reg_coeff)
+                j += self.cost(self.outputs, batch_targets, reg_coeff)
 
                 # backward
                 self.backward(batch_targets)
