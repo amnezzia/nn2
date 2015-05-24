@@ -3,11 +3,6 @@ __author__ = 'misha'
 import numpy as np
 
 
-class UnknownActivationFunction(Exception):
-    """Exception when specified activation string is not one of the implemented"""
-    pass
-
-
 class InputLayer(object):
     """
     Contains the basics: activations and size
@@ -27,26 +22,21 @@ class InputLayer(object):
         self.activations = np.array(inputs).reshape((-1, self.size))
 
 
-class HiddenLayer(object):
+class BaseLayer(object):
     """
-    Hidden layer
+    Base layer for hidden and output layers with logistic activation function
     """
 
-    def __init__(self, size, input_size, activate_f='logit', theta=None):
+    def __init__(self, size, input_size, theta=None):
         """
         Initialize with size and the size of the previous layer.
         Activations of the previous layer are inputs for this layer
         :param size: Number of neurons in this layer
         :param input_size: Size of the previous layer
-        :param activate_f: Activation function, default: 'log', right now only logistic function is implemented
         :param theta: optionally set starting theta
         """
         self.size = size
         self.activations = None
-
-        # for being able to specify the activation function
-        self.activate_f = activate_f
-        self._set_activation_function()
 
         self.input_size = input_size
         self.inputs = None
@@ -55,31 +45,18 @@ class HiddenLayer(object):
 
         # start with random weights
         if theta is None:
-            self.theta = 0.1 * np.random.rand(input_size + 1, size)
+            self.theta = 0.1 * np.random.randn(input_size + 1, size)
         else:
             self.theta = theta
+
         # these are derivatives of cost function with respect to weights, used for updating the weights during training
         self.theta_update = np.zeros(self.theta.shape)
 
         # number of training examples seen since last update of the weights
         self.batch_counter = 0
 
-    def _set_activation_function(self):
-        """
-
-        :return:
-        """
-        if self.activate_f == 'logit':
-            self._activation_function = self._logistic
-            self._activation_derivative = self._logistic_derivative
-        elif self.activate_f == 'lrect':
-            self._activation_function = self._linear_rectifier
-            self._activation_derivative = self._linear_rectifier_derivative
-        else:
-            raise UnknownActivationFunction("{} is unknown activation function".format(self.activate_f))
-
     @staticmethod
-    def _logistic(arr):
+    def activation_function(arr):
         """
         Logistic function
         :param arr: input array of arguments
@@ -89,30 +66,12 @@ class HiddenLayer(object):
         return 1. / (1. + np.exp(- arr))
 
     @staticmethod
-    def _logistic_derivative(arr):
+    def activation_derivative(arr):
         """
-        Selection of activation function derivatives
+        Derivative of activation function
         :return: derivative values
         """
         return arr * (1. - arr)
-
-    @staticmethod
-    def _linear_rectifier(arr):
-        """
-
-        :param x:
-        :return:
-        """
-        return (arr > 0) * arr
-
-    @staticmethod
-    def _linear_rectifier_derivative(arr):
-        """
-
-        :param arr:
-        :return:
-        """
-        return (arr > 0) * 1.
 
     def _set_inputs(self, inputs):
         """
@@ -135,7 +94,7 @@ class HiddenLayer(object):
         # sum up all inputs times the weights
         z = np.dot(self.input_plus_bias, self.theta)
         # calculate activations using activation function
-        self.activations = self._activation_function(z)
+        self.activations = self.activation_function(z)
 
     def set_deltas(self, pre_deltas):
         """
@@ -147,7 +106,7 @@ class HiddenLayer(object):
             pass
         else:
             pre_d = np.array(pre_deltas).reshape((-1, self.size))
-            self.deltas = self._activation_derivative(self.activations) * pre_d
+            self.deltas = self.activation_derivative(self.activations) * pre_d
 
     def get_previous_pre_deltas(self,):
         """
@@ -178,8 +137,94 @@ class HiddenLayer(object):
         self.batch_counter = 0
 
 
-class OutputLayer(HiddenLayer):
-    """
-    Same as Hidden layer, but with different deltas calculation
-    """
+class LogisticLayer(BaseLayer):
+    """Just for naming"""
     pass
+
+
+class LogisticTLayer(BaseLayer):
+    """
+    Same as Base layer, but with "temperature" in the activation function
+    """
+    def __init__(self, size, input_size, theta=None, T=1.):
+
+        super(LogisticTLayer, self).__init__(size, input_size, theta)
+
+        self.T = T
+
+    def activation_function(self, arr):
+        """
+        Logistic function
+        :param arr: input array of arguments
+        :return: array of results
+        """
+        arr = np.array(arr)
+        return 1. / (1. + np.exp(- arr / self.T))
+
+    def activation_derivative(self, arr):
+        """
+        Derivative of activation function
+        :return: derivative values
+        """
+        return arr * (1. - arr) / self.T
+
+
+
+class RectifierLayer(BaseLayer):
+    """
+    Same as Base layer, but with rectifier activation function
+    """
+    def __init__(self, size, input_size, theta=None, threshold=0.):
+
+        super(RectifierLayer, self).__init__(size, input_size, theta)
+
+        self.threshold = threshold
+
+
+    def activation_function(self, arr):
+        """
+        Linear rectifier (hard max) activation function
+        :param arr:
+        :return:
+        """
+        arr = np.subtract(arr, self.threshold)
+        return (arr > 0) * arr
+
+    def activation_derivative(self, arr):
+        """
+        Derivative of rectifier
+        :param arr:
+        :return:
+        """
+        return (np.subtract(arr, self.threshold) > 0) * 1.
+
+
+class RectifierInhibitLayer(BaseLayer):
+    """
+    Same as Base layer, but with rectifier activation function
+    """
+    def __init__(self, *args, **kwargs):
+        super(RectifierInhibitLayer, self).__init__(*args, **kwargs)
+
+        #self.inhibitors = (np.random.randn(self.size) > 0) * 2. - 1.
+
+    def activation_function(self, arr):
+        """
+        Linear rectifier (hard max) activation function
+        :param x:
+        :return:
+        """
+        out = (arr > 0) * arr
+        out[:, : self.size / 2] += -1.
+        return out
+
+    def activation_derivative(self, arr):
+        """
+        Derivative of rectifier
+        :param arr:
+        :return:
+        """
+        out = (arr > 0) * 1.
+        out[:, : self.size / 2] += -1.
+        return out
+
